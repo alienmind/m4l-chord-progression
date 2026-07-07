@@ -1,5 +1,5 @@
 /**
- * chordprog.js - Max-side glue for the Chord Progression device (NOT the React
+ * wrapper.js - Max-side glue for the Chord Progression device (NOT the React
  * app). Runs in Max's [js] object. Responsibilities:
  *
  * 1. Load the React UI (chordprog-ui.html) into the [jweb] object using a
@@ -18,7 +18,7 @@ autowatch = 1;
 inlets = 1;
 outlets = 2;
 
-post("chordprog.js loaded\n");
+post("wrapper.js loaded\n");
 
 var rootObs = null;
 var scaleObs = null;

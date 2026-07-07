@@ -25,13 +25,13 @@ theory in pure TypeScript, LiveAPI clip-writing in a `[js]` object.
 ## Project layout
 
 ```
-chordprog.js # Max-side [js]: UI loader + scale observers + clip writer
+wrapper.js # Max-side [js]: UI loader + scale observers + clip writer
 src/lib/theory/ # pure, unit-tested theory engine (pitch/scale/chord/roman/…)
 src/hooks/ # useScaleFromLive, useProgression
 src/components/ # ChordGrid, Stepper
 src/App.tsx # mini + expanded layouts
 scripts/postbuild.mjs # renames UI html, copies js/amxd, zips
-ableton-amxd/ChordProgression.amxd # created manually in Max (see below)
+ableton-amxd/ableton-template.amxd # template copied from livecam-m4l/ableton-amxd/
 ```
 
 ## Build & test
@@ -39,7 +39,7 @@ ableton-amxd/ChordProgression.amxd # created manually in Max (see below)
 ```
 pnpm install
 pnpm test # vitest - theory engine (26 tests)
-pnpm build # → dist/{chordprog-ui.html, chordprog.js, ChordProgression.amxd}
+pnpm build # → dist/{chordprog-ui.html, wrapper.js, ableton-template.amxd}
 pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
 ```
 
@@ -50,13 +50,13 @@ pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
  `write_clip <lengthBeats> <n> <p1 s1 d1 v1> <p2 …>` (flat numeric list - never
  raw JSON, which Max would tokenize on whitespace/commas).
 
-## Creating `ableton-amxd/ChordProgression.amxd` (do this once, in Max)
+## Creating `ableton-amxd/ableton-template.amxd` (do this once, in Max)
 
 1. In Ableton: drag a **Max MIDI Effect** onto a MIDI track → click **Edit** to
  open the Max editor.
 2. Keep the default `midiin → midiout` wired (the device stays MIDI-transparent;
  generated notes go to a clip, not through the MIDI stream).
-3. Add three objects: `live.thisdevice`, `js chordprog.js`,
+3. Add three objects: `live.thisdevice`, `js wrapper.js`,
  `jweb @enablejavascript 1`.
 4. Wire them:
  - `live.thisdevice` outlet 0 → `js` inlet 0
@@ -65,10 +65,10 @@ pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
 5. Select the `jweb` object → Inspector: set **Initial URL** to `about:blank`.
 6. Add `jweb` to the Presentation view, size it ~320×180, and enable
  "Open in Presentation" for the device.
-7. **Save** the device as `ableton-amxd/ChordProgression.amxd`.
-8. Copy `dist/chordprog-ui.html` and `dist/chordprog.js` next to the `.amxd`
+7. **Save** the device as `ableton-amxd/ableton-template.amxd` (or copy the pre-built `ableton-template.amxd` from `livecam-m4l/ableton-amxd/`).
+8. Copy `dist/chordprog-ui.html` and `dist/wrapper.js` next to the `.amxd`
  (the postbuild zip already bundles them under `ChordProgression/`).
 
-Check the Max Console for `chordprog.js loaded`, `chordprog: sent url …`, and
+Check the Max Console for `wrapper.js loaded`, `chordprog: sent url …`, and
 `chordprog: scale observers ready`. **Never Freeze** the device - distribute it
 as the folder so the `file://` UI resolves.
