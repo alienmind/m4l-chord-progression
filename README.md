@@ -1,0 +1,74 @@
+# Chord Progression - Max for Live MIDI device
+
+A MIDI-generator device that turns roman-numeral chord
+progressions into MIDI clips on the active track. React UI inside `jweb`, music
+theory in pure TypeScript, LiveAPI clip-writing in a `[js]` object.
+
+## What it does
+
+- Follows Ableton **Live 12**'s global key/scale (`live_set root_note` /
+ `scale_name`), or use manual Key + Mode dropdowns.
+- Type a progression in roman-numeral notation (`I - V - vi - IV`,
+ `ii7 - V7 - Imaj7`, `i - VII - VI - V`, slash chords `I/V`, extensions `add9`,
+ qualities `sus4`/`ø7`/`°`/`+`). Numerals are **mode-relative** (in a minor
+ scale `VII` is already the natural-minor 7th; `bVII` would flatten it further).
+- Two-way translation between roman-numeral and absolute-chord notation
+ (`romanToAbsolute` / `absoluteToRoman` in `src/lib/theory/roman.ts`).
+- Preset progressions with "feeling" labels (major + minor lists).
+- **Generate** button = weighted randomizer; the Conventional↔Adventurous slider
+ raises the probability of sevenths, extensions, borrowed chords and secondary
+ dominants.
+- Count / Octave / Bars steppers; **Block vs Arp** toggle.
+- **Write Clip** creates a MIDI clip in the highlighted slot (or the first empty
+ slot on the selected track).
+
+## Project layout
+
+```
+chordprog.js # Max-side [js]: UI loader + scale observers + clip writer
+src/lib/theory/ # pure, unit-tested theory engine (pitch/scale/chord/roman/…)
+src/hooks/ # useScaleFromLive, useProgression
+src/components/ # ChordGrid, Stepper
+src/App.tsx # mini + expanded layouts
+scripts/postbuild.mjs # renames UI html, copies js/amxd, zips
+ableton-amxd/ChordProgression.amxd # created manually in Max (see below)
+```
+
+## Build & test
+
+```
+pnpm install
+pnpm test # vitest - theory engine (26 tests)
+pnpm build # → dist/{chordprog-ui.html, chordprog.js, ChordProgression.amxd}
+pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
+```
+
+## jweb ⇄ [js] protocol
+
+- `[js]` → `jweb` (outlet 0): `url <file://…>`, then `scale <root 0..11> <name…>`.
+- `jweb` → `[js]` (jweb outlet → js inlet):
+ `write_clip <lengthBeats> <n> <p1 s1 d1 v1> <p2 …>` (flat numeric list - never
+ raw JSON, which Max would tokenize on whitespace/commas).
+
+## Creating `ableton-amxd/ChordProgression.amxd` (do this once, in Max)
+
+1. In Ableton: drag a **Max MIDI Effect** onto a MIDI track → click **Edit** to
+ open the Max editor.
+2. Keep the default `midiin → midiout` wired (the device stays MIDI-transparent;
+ generated notes go to a clip, not through the MIDI stream).
+3. Add three objects: `live.thisdevice`, `js chordprog.js`,
+ `jweb @enablejavascript 1`.
+4. Wire them:
+ - `live.thisdevice` outlet 0 → `js` inlet 0
+ - `js` outlet 0 → `jweb` inlet 0
+ - **`jweb` outlet 0 → `js` inlet 0** (the return path for `write_clip`)
+5. Select the `jweb` object → Inspector: set **Initial URL** to `about:blank`.
+6. Add `jweb` to the Presentation view, size it ~320×180, and enable
+ "Open in Presentation" for the device.
+7. **Save** the device as `ableton-amxd/ChordProgression.amxd`.
+8. Copy `dist/chordprog-ui.html` and `dist/chordprog.js` next to the `.amxd`
+ (the postbuild zip already bundles them under `ChordProgression/`).
+
+Check the Max Console for `chordprog.js loaded`, `chordprog: sent url …`, and
+`chordprog: scale observers ready`. **Never Freeze** the device - distribute it
+as the folder so the `file://` UI resolves.
