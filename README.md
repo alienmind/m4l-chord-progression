@@ -39,9 +39,19 @@ ableton-amxd/ableton-template.amxd # template copied from livecam-m4l/ableton-am
 ```
 pnpm install
 pnpm test # vitest - theory engine (26 tests)
-pnpm build # → dist/{chordprog-ui.html, wrapper.js, ableton-template.amxd}
+pnpm build # → dist/m4l-chord-progression/{m4l-chord-progression.amxd, chordprog-ui.html, wrapper.js}
+           #   + dist/m4l-chord-progression.zip (release archive of that folder)
 pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
 ```
+
+## Installing in Ableton
+
+Copy `dist/m4l-chord-progression.zip` into your Ableton **User Library**, under
+`Max4Live Devices` (e.g. `…/User Library/Presets/MIDI Effects/Max MIDI Effect/Max4Live Devices/`),
+and **uncompress it there**. This yields a `m4l-chord-progression/` folder with
+the `.amxd` and its `chordprog-ui.html` / `wrapper.js` side by side — the device
+loads them relative to its own location, so they must stay together. Then drag
+`m4l-chord-progression.amxd` onto a MIDI track from Live's browser.
 
 ## jweb ⇄ [js] protocol
 
@@ -66,8 +76,10 @@ pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
 6. Add `jweb` to the Presentation view, size it ~320×180, and enable
  "Open in Presentation" for the device.
 7. **Save** the device as `ableton-amxd/ableton-template.amxd` (or copy the pre-built `ableton-template.amxd` from `livecam-m4l/ableton-amxd/`).
-8. Copy `dist/chordprog-ui.html` and `dist/wrapper.js` next to the `.amxd`
- (the postbuild zip already bundles them under `ChordProgression/`).
+8. Distribute the `dist/m4l-chord-progression/` folder as-is: it contains
+ `m4l-chord-progression.amxd` (a renamed copy of the template) with
+ `chordprog-ui.html` and `wrapper.js` next to it (the postbuild zip bundles
+ the same folder).
 
 Check the Max Console for `wrapper.js loaded`, `chordprog: sent url …`, and
 `chordprog: scale observers ready`. **Never Freeze** the device - distribute it
