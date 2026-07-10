@@ -9,9 +9,9 @@
 			"modernui": 1
 		},
 		"classnamespace": "box",
-		"rect": [100.0, 100.0, 700.0, 360.0],
+		"rect": [100.0, 100.0, 900.0, 360.0],
 		"openinpresentation": 1,
-		"openrect": [0.0, 0.0, 0.0, 169.0],
+		"openrect": [0.0, 0.0, 760.0, 169.0],
 		"openrectmode": 0,
 		"default_fontsize": 10.0,
 		"default_fontname": "Arial Bold",
@@ -73,10 +73,10 @@
 					"numinlets": 1,
 					"numoutlets": 1,
 					"outlettype": [""],
-					"patching_rect": [16.0, 104.0, 400.0, 169.0],
+					"patching_rect": [16.0, 104.0, 760.0, 169.0],
 					"presentation": 1,
-					"presentation_rect": [0.0, 0.0, 420.0, 169.0],
-					"rendermode": 0
+					"presentation_rect": [0.0, 0.0, 760.0, 169.0],
+					"rendermode": 1
 				}
 			}
 		],

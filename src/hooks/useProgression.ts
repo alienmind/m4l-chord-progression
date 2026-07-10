@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { outlet } from "@/lib/maxBridge";
+import { useEffect, useMemo, useState } from "react";
+import { bindInlet, outlet } from "@/lib/maxBridge";
 import type { KeyContext } from "@/lib/theory/scale";
-import { parseProgression, type ParseError } from "@/lib/theory/roman";
+import { parseProgression, renderRoman, type ParseError } from "@/lib/theory/roman";
 import { absoluteName, realize, type ChordSpec } from "@/lib/theory/chord";
 import { toNoteEvents, toFlatList } from "@/lib/theory/midi";
 import { randomProgression } from "@/lib/theory/randomize";
@@ -30,6 +30,8 @@ export interface ProgressionState {
 	errors: ParseError[];
 	randomize: () => void;
 	writeClip: () => void;
+	/** True for a moment after Max confirms the clip was created. */
+	written: boolean;
 }
 
 export function useProgression(key: KeyContext): ProgressionState {
@@ -39,12 +41,21 @@ export function useProgression(key: KeyContext): ProgressionState {
 	const [count, setCount] = useState(4);
 	const [adventurousness, setAdventurousness] = useState(0.3);
 	const [arp, setArp] = useState(false);
+	const [written, setWritten] = useState(false);
+
+	useEffect(() => {
+		// The [js] side confirms clip creation with `clip_written 1`.
+		bindInlet("clip_written", () => {
+			setWritten(true);
+			window.setTimeout(() => setWritten(false), 2000);
+		});
+	}, []);
 
 	const { chords, errors } = useMemo(() => {
-		const parsed = parseProgression(text);
-		const rendered: RenderedChord[] = parsed.chords.map((spec, i) => ({
+		const parsed = parseProgression(text, key);
+		const rendered: RenderedChord[] = parsed.chords.map((spec) => ({
 			spec,
-			roman: text.trim().split(/[\s,\-]+/).filter(Boolean)[i] ?? "",
+			roman: renderRoman(spec),
 			name: absoluteName(spec, key),
 			notes: realize(spec, key, octave),
 		}));
@@ -86,5 +97,6 @@ export function useProgression(key: KeyContext): ProgressionState {
 		errors,
 		randomize,
 		writeClip,
+		written,
 	};
 }

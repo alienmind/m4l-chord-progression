@@ -191,8 +191,13 @@ function parseSlashBass(
 	return { degree: 1, accidental: 0 };
 }
 
-/** Parse a whole progression string into ChordSpecs, collecting errors. */
-export function parseProgression(text: string): ParseResult {
+/**
+ * Parse a whole progression string into ChordSpecs, collecting errors.
+ * Tokens are tried as roman numerals first; when a `key` is given, tokens
+ * that aren't numerals fall back to absolute chord names ("Dm7", "Bb"), so
+ * both notations - and the output of the randomizer - are accepted.
+ */
+export function parseProgression(text: string, key?: KeyContext): ParseResult {
 	const tokens = splitTokens(text);
 	const chords: ChordSpec[] = [];
 	const errors: ParseError[] = [];
@@ -200,6 +205,11 @@ export function parseProgression(text: string): ParseResult {
 		try {
 			chords.push(parseChordToken(tok));
 		} catch (e) {
+			const abs = key ? specFromAbsolute(tok, key) : null;
+			if (abs) {
+				chords.push(abs);
+				return;
+			}
 			errors.push({
 				index,
 				token: tok,
@@ -295,7 +305,7 @@ export function romanToAbsolute(
 	key: KeyContext,
 	preferFlats = true,
 ): string {
-	const { chords } = parseProgression(text);
+	const { chords } = parseProgression(text, key);
 	return chords.map((c) => absoluteName(c, key, preferFlats)).join(" - ");
 }
 

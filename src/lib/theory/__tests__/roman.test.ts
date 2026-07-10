@@ -48,6 +48,21 @@ describe("parseProgression", () => {
 		expect(r.errors).toHaveLength(1);
 		expect(r.errors[0].token).toBe("Q");
 	});
+
+	it("accepts absolute chord names when given a key (randomizer output)", () => {
+		const r = parseProgression("C - Dm - Bdim - G", C_MAJOR);
+		expect(r.errors).toHaveLength(0);
+		expect(r.chords).toHaveLength(4);
+		expect(r.chords[1].degree).toBe(2);
+		expect(r.chords[1].quality).toBe("min");
+		expect(r.chords[2].quality).toBe("dim");
+	});
+
+	it("accepts mixed roman and absolute tokens", () => {
+		const r = parseProgression("I - Dm7 - V7", C_MAJOR);
+		expect(r.errors).toHaveLength(0);
+		expect(r.chords).toHaveLength(3);
+	});
 });
 
 describe("two-way translation", () => {
