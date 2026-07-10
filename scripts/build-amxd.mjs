@@ -30,6 +30,17 @@ if (!outPath) {
 const patcherJson = readFileSync(path.join(root, "ableton-amxd", "patcher.json"), "utf8");
 const wrapperJs = readFileSync(path.join(root, "wrapper.js"), "utf8");
 
+// The built single-file UI (vite-plugin-singlefile inlines all JS/CSS) is
+// embedded too, so the .amxd is fully self-contained: Max unpacks frozen
+// dependencies into its cache and resolves them via the search path.
+let uiHtml = null;
+const uiPath = path.join(path.dirname(path.resolve(outPath)), "chordprog-ui.html");
+try {
+	uiHtml = readFileSync(uiPath, "utf8");
+} catch {
+	console.warn(`build-amxd: WARNING - ${uiPath} not found; UI not embedded`);
+}
+
 // 'aaaa' audio effect / 'mmmm' MIDI effect / 'iiii' instrument.
 const AMXD_TYPES = { 0x61616161: "aaaa", 0x6d6d6d6d: "mmmm", 0x69696969: "iiii" };
 const amxdtype = JSON.parse(patcherJson).patcher?.project?.amxdtype;
@@ -45,6 +56,9 @@ const files = [
 	{ type: "JSON", name: path.basename(outPath), data: Buffer.from(patcherJson, "utf8"), flag: 0x11 },
 	{ type: "TEXT", name: "wrapper.js", data: Buffer.from(wrapperJs, "utf8"), flag: 0 },
 ];
+if (uiHtml !== null) {
+	files.push({ type: "TEXT", name: "chordprog-ui.html", data: Buffer.from(uiHtml, "utf8"), flag: 0 });
+}
 
 function u32be(n) {
 	const b = Buffer.alloc(4);

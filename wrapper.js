@@ -58,18 +58,41 @@ function teardown() {
 
 function loadWebview() {
 	try {
-		var fp = this.patcher.filepath;
-		if (!fp || !fp.length) {
-			post("chordprog: patcher not saved yet - UI path unknown\n");
+		var url = resolveUiUrl();
+		if (!url) {
+			post("chordprog: chordprog-ui.html not found (search path or device folder)\n");
 			return;
 		}
-		var folder = fp.replace(/\/[^\/]*$/, "");
-		var url = encodeURI("file:///" + folder + "/chordprog-ui.html");
 		outlet(0, "url", url);
 		post("chordprog: sent url " + url + "\n");
 	} catch (e) {
 		post("chordprog: loadWebview error " + e.message + "\n");
 	}
+}
+
+/**
+ * Locate the UI html. The .amxd embeds it as a frozen dependency, which Max
+ * unpacks into its cache and exposes through the search path - so a bare
+ * File("chordprog-ui.html") finds it and the device is a single
+ * self-contained file. Falls back to the folder next to the patcher for the
+ * unfrozen dev layout.
+ */
+function resolveUiUrl() {
+	try {
+		var f = new File("chordprog-ui.html");
+		if (f.isopen) {
+			var folder = f.foldername;
+			f.close();
+			return encodeURI("file:///" + folder.replace(/\\/g, "/") + "/chordprog-ui.html");
+		}
+	} catch (e) {
+		post("chordprog: search-path lookup failed " + e.message + "\n");
+	}
+	var fp = this.patcher.filepath;
+	if (fp && fp.length) {
+		return encodeURI("file:///" + fp.replace(/\/[^\/]*$/, "") + "/chordprog-ui.html");
+	}
+	return null;
 }
 
 function onRoot(a) {

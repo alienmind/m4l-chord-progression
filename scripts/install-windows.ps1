@@ -40,7 +40,9 @@ if (-not (Test-Path $userLib)) {
 $dest = Join-Path $userLib "Max For Live\$deviceName"
 if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
 New-Item -ItemType Directory -Force $dest | Out-Null
-Copy-Item "$src\*" $dest -Recurse -Force
+# The .amxd is self-contained (UI html + wrapper.js are embedded as frozen
+# dependencies), so only the device file itself is installed.
+Copy-Item (Join-Path $src "$deviceName.amxd") $dest -Force
 
 Write-Host "Installed to $dest"
 Write-Host "In Live: User Library > Max For Live > $deviceName > $deviceName.amxd"
