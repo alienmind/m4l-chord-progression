@@ -56,11 +56,11 @@ scripts/install-linux.sh      # Linux (Live under Wine)
 Each script reads the User Library location from Live's `Library.cfg`
 (`%APPDATA%\Ableton\Live <ver>\Preferences` on Windows,
 `~/Library/Preferences/Ableton/Live <ver>` on macOS - no registry or env vars),
-falls back to Live's default location, and replaces
-`User Library/Max For Live/m4l-chord-progression/` with the built folder. The
-`.amxd`, `chordprog-ui.html` and `wrapper.js` must stay side by side - the
-device loads them relative to its own location. Then drag
-`m4l-chord-progression.amxd` onto a MIDI track from Live's browser.
+falls back to Live's default location, and installs **only
+`m4l-chord-progression.amxd`** into
+`User Library/Max For Live/m4l-chord-progression/`. The device is fully
+self-contained (see *Self-contained .amxd* below) - drag it onto a MIDI track
+from Live's browser and it unpacks its own UI.
 
 ## jweb ⇄ [js] protocol
 
@@ -79,6 +79,36 @@ notes go to clips via LiveAPI), `live.thisdevice → js wrapper.js → jweb`, an
 `jweb → js` (the return path for `write_clip`), opening in Presentation with
 the jweb filling the device view.
 
+## Self-contained .amxd (single-file distribution)
+
+The `.amxd` is the **only file you need to distribute** - the React UI is
+carried inside it and self-extracts on first load. How, and why this shape:
+
+1. `vite-plugin-singlefile` inlines all JS/CSS into one `chordprog-ui.html`.
+2. `build-amxd.mjs` appends that file to `wrapper.js` as base64 chunks
+   (`UI_PAYLOAD_B64` / `UI_PAYLOAD_BYTES`) before embedding the script in the
+   amxd container as a frozen dependency.
+3. On device load, `wrapper.js` decodes the payload (Max js has no `atob`,
+   so it ships a small ES5 base64 decoder) and writes `chordprog-ui.html`
+   next to the `.amxd`, then points `jweb` at that real file via `file://`.
+   Extraction is skipped when an identical-size copy already exists, and the
+   written size is verified (a mismatch is posted to the Max console).
+
+Two Max quirks force this design - simpler approaches **do not work**:
+
+- **Frozen dependencies are virtual.** Max resolves files embedded in a
+  frozen `.amxd` through its own virtual filesystem: `[js] File()` can open
+  them, but they never exist as loose files on disk, so handing `jweb`
+  (Chromium, which reads the real disk) a `file://` URL to one yields
+  `ERR_FILE_NOT_FOUND`. That rules out simply embedding the html as a
+  dependency and pointing jweb at it - the running script has to *extract*
+  it to disk itself. Embedding the payload in `wrapper.js` (rather than as a
+  separate frozen file read via `File()`) keeps the mechanism independent of
+  search-path behaviour entirely.
+- **`File.writebytes` truncates silently at 16384 bytes per call.** The
+  extractor writes in 4096-byte slices; a bigger write produces a corrupt
+  file and a gray jweb page with no error anywhere.
+
 > **History / warning:** earlier revisions shipped
 > `ableton-amxd/ableton-template.amxd`, a byte-patched copy of the LiveCam
 > device (string-replacing `livecam.js` → `wrapper.js` in the binary). That is
@@ -89,6 +119,6 @@ the jweb filling the device view.
 > built device in Live's Max editor, edit, and port the changes back into
 > `patcher.json`.
 
-Check the Max Console for `wrapper.js loaded`, `chordprog: sent url …`, and
-`chordprog: scale observers ready`. **Never Freeze** the device - distribute it
-as the folder so the `file://` UI resolves.
+Check the Max Console for `wrapper.js loaded`,
+`chordprog: extracted UI (… bytes) to …` (first load only), and
+`chordprog: sent url …` / `chordprog: scale observers ready`.
