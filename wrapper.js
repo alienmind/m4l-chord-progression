@@ -118,11 +118,24 @@ function extractPayloadIfNeeded(targetPath) {
 			return;
 		}
 		out.eof = 0;
+		// File.writebytes silently truncates large calls (observed 16384-byte
+		// cap), so write in small slices.
+		var SLICE = 4096;
 		for (var i = 0; i < UI_PAYLOAD_B64.length; i++) {
-			out.writebytes(b64decode(UI_PAYLOAD_B64[i]));
+			var bytes = b64decode(UI_PAYLOAD_B64[i]);
+			for (var off = 0; off < bytes.length; off += SLICE) {
+				out.writebytes(bytes.slice(off, off + SLICE));
+			}
 		}
 		out.close();
-		post("chordprog: extracted UI (" + UI_PAYLOAD_BYTES + " bytes) to " + targetPath + "\n");
+		var check = new File(targetPath);
+		var written = check.isopen ? check.eof : -1;
+		if (check.isopen) check.close();
+		if (written === UI_PAYLOAD_BYTES) {
+			post("chordprog: extracted UI (" + written + " bytes) to " + targetPath + "\n");
+		} else {
+			post("chordprog: extract SIZE MISMATCH - wrote " + written + ", expected " + UI_PAYLOAD_BYTES + "\n");
+		}
 	} catch (e2) {
 		post("chordprog: extract failed - " + e2.message + "\n");
 	}
