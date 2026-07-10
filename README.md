@@ -30,8 +30,9 @@ src/lib/theory/ # pure, unit-tested theory engine (pitch/scale/chord/roman/…)
 src/hooks/ # useScaleFromLive, useProgression
 src/components/ # ChordGrid, Stepper
 src/App.tsx # mini + expanded layouts
-scripts/postbuild.mjs # renames UI html, copies js/amxd, zips
-ableton-amxd/ableton-template.amxd # template copied from livecam-m4l/ableton-amxd/
+scripts/postbuild.mjs # renames UI html, generates the amxd, zips
+scripts/build-amxd.mjs # wraps ableton-amxd/patcher.json in the amxd container
+ableton-amxd/patcher.json # the device patcher (source of truth, plain JSON)
 ```
 
 ## Build & test
@@ -46,11 +47,19 @@ pnpm dev # browser dev on 127.0.0.1:5174; use maxSimulate('scale', 0, 'Major')
 
 ## Installing in Ableton
 
-Copy `dist/m4l-chord-progression.zip` into your Ableton **User Library**, under
-`Max4Live Devices` (e.g. `…/User Library/Presets/MIDI Effects/Max MIDI Effect/Max4Live Devices/`),
-and **uncompress it there**. This yields a `m4l-chord-progression/` folder with
-the `.amxd` and its `chordprog-ui.html` / `wrapper.js` side by side — the device
-loads them relative to its own location, so they must stay together. Then drag
+```
+scripts\install-windows.ps1   # Windows
+scripts/install-mac.sh        # macOS
+scripts/install-linux.sh      # Linux (Live under Wine)
+```
+
+Each script reads the User Library location from Live's `Library.cfg`
+(`%APPDATA%\Ableton\Live <ver>\Preferences` on Windows,
+`~/Library/Preferences/Ableton/Live <ver>` on macOS - no registry or env vars),
+falls back to Live's default location, and replaces
+`User Library/Max For Live/m4l-chord-progression/` with the built folder. The
+`.amxd`, `chordprog-ui.html` and `wrapper.js` must stay side by side - the
+device loads them relative to its own location. Then drag
 `m4l-chord-progression.amxd` onto a MIDI track from Live's browser.
 
 ## jweb ⇄ [js] protocol
@@ -60,26 +69,25 @@ loads them relative to its own location, so they must stay together. Then drag
  `write_clip <lengthBeats> <n> <p1 s1 d1 v1> <p2 …>` (flat numeric list - never
  raw JSON, which Max would tokenize on whitespace/commas).
 
-## Creating `ableton-amxd/ableton-template.amxd` (do this once, in Max)
+## How the `.amxd` is built (no manual Max step)
 
-1. In Ableton: drag a **Max MIDI Effect** onto a MIDI track → click **Edit** to
- open the Max editor.
-2. Keep the default `midiin → midiout` wired (the device stays MIDI-transparent;
- generated notes go to a clip, not through the MIDI stream).
-3. Add three objects: `live.thisdevice`, `js wrapper.js`,
- `jweb @enablejavascript 1`.
-4. Wire them:
- - `live.thisdevice` outlet 0 → `js` inlet 0
- - `js` outlet 0 → `jweb` inlet 0
- - **`jweb` outlet 0 → `js` inlet 0** (the return path for `write_clip`)
-5. Select the `jweb` object → Inspector: set **Initial URL** to `about:blank`.
-6. Add `jweb` to the Presentation view, size it ~320×180, and enable
- "Open in Presentation" for the device.
-7. **Save** the device as `ableton-amxd/ableton-template.amxd` (or copy the pre-built `ableton-template.amxd` from `livecam-m4l/ableton-amxd/`).
-8. Distribute the `dist/m4l-chord-progression/` folder as-is: it contains
- `m4l-chord-progression.amxd` (a renamed copy of the template) with
- `chordprog-ui.html` and `wrapper.js` next to it (the postbuild zip bundles
- the same folder).
+`scripts/build-amxd.mjs` wraps `ableton-amxd/patcher.json` (plus an embedded
+copy of `wrapper.js`) in the amxd binary container at build time, so the device
+patcher is versioned as plain JSON and the build is fully automated. The
+patcher is a **Max MIDI Effect** wired as: `midiin → midiout` (MIDI-transparent;
+notes go to clips via LiveAPI), `live.thisdevice → js wrapper.js → jweb`, and
+`jweb → js` (the return path for `write_clip`), opening in Presentation with
+the jweb filling the device view.
+
+> **History / warning:** earlier revisions shipped
+> `ableton-amxd/ableton-template.amxd`, a byte-patched copy of the LiveCam
+> device (string-replacing `livecam.js` → `wrapper.js` in the binary). That is
+> not a valid approach: the file was a *frozen* device still embedding
+> LiveCam's old glue script and patcher, so Live showed "Your file couldn't be
+> accessed" / ran the wrong code. Never binary-patch an .amxd; regenerate it
+> from `patcher.json` instead. To tweak the patch interactively, open the
+> built device in Live's Max editor, edit, and port the changes back into
+> `patcher.json`.
 
 Check the Max Console for `wrapper.js loaded`, `chordprog: sent url …`, and
 `chordprog: scale observers ready`. **Never Freeze** the device - distribute it
