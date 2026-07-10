@@ -71,28 +71,78 @@ function loadWebview() {
 }
 
 /**
- * Locate the UI html. The .amxd embeds it as a frozen dependency, which Max
- * unpacks into its cache and exposes through the search path - so a bare
- * File("chordprog-ui.html") finds it and the device is a single
- * self-contained file. Falls back to the folder next to the patcher for the
- * unfrozen dev layout.
+ * Locate the UI html and return a file:// URL that Chromium (jweb) can read.
+ *
+ * The .amxd embeds chordprog-ui.html as a frozen dependency. Max resolves
+ * frozen files through a VIRTUAL filesystem - [js] File() can open them, but
+ * they never exist as loose files on disk, so jweb (Chromium reading the real
+ * disk) cannot load them directly. Solution: read the embedded copy through
+ * the Max File API and extract it once next to the .amxd, then point jweb at
+ * the extracted file. A loose copy already next to the device (dev layout)
+ * is used as-is.
  */
+var UI_NAME = "chordprog-ui.html";
+
 function resolveUiUrl() {
+	var fp = this.patcher.filepath;
+	var devFolder = fp && fp.length ? fp.replace(/\/[^\/]*$/, "") : null;
+	if (!devFolder) {
+		post("chordprog: patcher not saved yet - UI path unknown\n");
+		return null;
+	}
+	var target = devFolder + "/" + UI_NAME;
+
+	var src = new File(UI_NAME);
+	if (!src.isopen) {
+		// Not resolvable through the search path: hope a loose copy sits next
+		// to the device (pre-embed layout).
+		post("chordprog: " + UI_NAME + " not in search path, trying " + target + "\n");
+		return encodeURI("file:///" + target);
+	}
+	var srcFolder = src.foldername.replace(/\\/g, "/");
+	post("chordprog: search path found " + UI_NAME + " in " + srcFolder + "\n");
+	if (srcFolder.toLowerCase() === devFolder.toLowerCase()) {
+		// Already a real loose file next to the device - use it directly.
+		src.close();
+	} else {
+		// Inside the frozen .amxd (virtual path) - extract next to the device.
+		extractIfNeeded(src, target);
+		src.close();
+	}
+	return encodeURI("file:///" + target);
+}
+
+/** Copy `src` (open Max File) to targetPath unless an identical-size copy exists. */
+function extractIfNeeded(src, targetPath) {
 	try {
-		var f = new File("chordprog-ui.html");
-		if (f.isopen) {
-			var folder = f.foldername;
-			f.close();
-			return encodeURI("file:///" + folder.replace(/\\/g, "/") + "/chordprog-ui.html");
+		var existing = new File(targetPath);
+		if (existing.isopen) {
+			var sameSize = existing.eof === src.eof;
+			existing.close();
+			if (sameSize) return; // already extracted, same build
 		}
 	} catch (e) {
-		post("chordprog: search-path lookup failed " + e.message + "\n");
+		/* fall through to (re)write */
 	}
-	var fp = this.patcher.filepath;
-	if (fp && fp.length) {
-		return encodeURI("file:///" + fp.replace(/\/[^\/]*$/, "") + "/chordprog-ui.html");
+	try {
+		var out = new File(targetPath, "write");
+		if (!out.isopen) out.open();
+		if (!out.isopen) {
+			post("chordprog: cannot write " + targetPath + "\n");
+			return;
+		}
+		out.eof = 0;
+		src.position = 0;
+		var CHUNK = 16384;
+		while (src.position < src.eof) {
+			var n = Math.min(CHUNK, src.eof - src.position);
+			out.writebytes(src.readbytes(n));
+		}
+		out.close();
+		post("chordprog: extracted UI (" + src.eof + " bytes) to " + targetPath + "\n");
+	} catch (e2) {
+		post("chordprog: extract failed - " + e2.message + "\n");
 	}
-	return null;
 }
 
 function onRoot(a) {
